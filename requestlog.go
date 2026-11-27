@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -12,22 +12,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
-
-const createRequestLogTable = `
-CREATE TABLE IF NOT EXISTS request_log (
-	id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-	received_at timestamptz      NOT NULL,
-	method      text             NOT NULL,
-	path        text             NOT NULL,
-	query       text             NOT NULL,
-	status      integer          NOT NULL,
-	duration_ms double precision NOT NULL,
-	client_ip   text             NOT NULL,
-	user_agent  text             NOT NULL,
-	referer     text             NOT NULL
-);
-CREATE INDEX IF NOT EXISTS request_log_received_at_idx ON request_log (received_at);
-`
 
 var requestLogColumns = []string{
 	"received_at", "method", "path", "query", "status",
@@ -64,33 +48,15 @@ type requestLogger struct {
 	dropped atomic.Int64
 }
 
-func newRequestLogger(ctx context.Context, databaseURL string) (*requestLogger, error) {
-	config, err := pgxpool.ParseConfig(databaseURL)
-	if err != nil {
-		return nil, fmt.Errorf("parsing DATABASE_URL: %w", err)
-	}
-	config.MaxConns = 2
-
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
-	defer cancel()
-
-	pool, err := pgxpool.NewWithConfig(ctx, config)
-	if err != nil {
-		return nil, fmt.Errorf("connecting to database: %w", err)
-	}
-	if _, err := pool.Exec(ctx, createRequestLogTable); err != nil {
-		pool.Close()
-		return nil, fmt.Errorf("creating request_log table: %w", err)
-	}
-
+func newRequestLogger(db *pgxpool.Pool) *requestLogger {
 	l := &requestLogger{
-		pool:    pool,
+		pool:    db,
 		entries: make(chan requestLogEntry, requestLogQueueSize),
 		stop:    make(chan struct{}),
 		done:    make(chan struct{}),
 	}
 	go l.run()
-	return l, nil
+	return l
 }
 
 // Middleware records every request once its response is complete. For event
@@ -104,7 +70,7 @@ func (l *requestLogger) Middleware(next http.Handler) http.Handler {
 				receivedAt: start,
 				method:     r.Method,
 				path:       r.URL.EscapedPath(),
-				query:      r.URL.RawQuery,
+				query:      redactTokens(r.URL),
 				status:     rec.statusCode(),
 				duration:   time.Since(start),
 				clientIP:   clientIP(r),
@@ -184,7 +150,7 @@ func (l *requestLogger) write(batch []requestLogEntry) {
 	}
 }
 
-// Close writes all queued entries and closes the database connections.
+// Close writes all queued entries.
 func (l *requestLogger) Close(ctx context.Context) {
 	close(l.stop)
 	select {
@@ -192,7 +158,21 @@ func (l *requestLogger) Close(ctx context.Context) {
 	case <-ctx.Done():
 		log.Printf("request log: shutdown timed out, %d entries not written", len(l.entries))
 	}
-	l.pool.Close()
+}
+
+// redactTokens returns the query string with the value of a "token"
+// parameter blanked out. Tokens confirm or cancel registrations and do not
+// belong in a log.
+func redactTokens(u *url.URL) string {
+	if !strings.Contains(u.RawQuery, "token") {
+		return u.RawQuery
+	}
+	q := u.Query()
+	if !q.Has("token") {
+		return u.RawQuery
+	}
+	q.Set("token", "REDACTED")
+	return q.Encode()
 }
 
 // cleanText shortens s and makes it storable in a Postgres text column, which

@@ -1,12 +1,8 @@
-module github.com/render-examples/go-gin-web-server
+module github.com/sgruendel/adventskalender-wuerzburg-go
 
 go 1.27
 
-require (
-	github.com/dustin/go-broadcast v0.0.0-20211018055107-71439988bd91
-	github.com/jackc/pgx/v5 v5.13.0
-	github.com/manucorporat/stats v0.0.0-20180402194714-3ba42d56d227
-)
+require github.com/jackc/pgx/v5 v5.13.0
 
 require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect

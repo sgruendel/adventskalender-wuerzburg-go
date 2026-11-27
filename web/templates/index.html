@@ -1,0 +1,27 @@
+{{define "title"}}Anmelden{{end}}
+
+{{define "content"}}
+<h1>Hat mein Adventskalender gewonnen?</h1>
+<p class="lead">Melde deine Kalendernummer an. Vom 1. bis 24. Dezember prüfen wir täglich die veröffentlichten Gewinnnummern und schicken dir eine E-Mail, sobald dein Kalender gezogen wurde.</p>
+
+{{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
+
+<form method="post" action="/anmelden">
+  <div class="field">
+    <label for="email">E-Mail-Adresse</label>
+    <input id="email" name="email" type="email" autocomplete="email" required maxlength="254" value="{{.Email}}">
+  </div>
+  <div class="field">
+    <label for="kalender">Kalendernummer</label>
+    <input id="kalender" name="kalender" class="number" inputmode="numeric" pattern="[0-9]{1,4}" maxlength="4" required placeholder="1234" value="{{.Number}}" aria-describedby="kalender-hint">
+    <p class="hint" id="kalender-hint">Steht oben links auf der Titelseite deines Kalenders. Mehrere Kalender meldest du bitte einzeln an.</p>
+  </div>
+  <div class="trap" aria-hidden="true">
+    <label for="website">Bitte leer lassen</label>
+    <input id="website" name="website" tabindex="-1" autocomplete="off">
+  </div>
+  <button type="submit">Benachrichtigung anmelden</button>
+</form>
+
+<p class="small">Du bekommst zuerst eine E-Mail mit einem Bestätigungslink. Erst danach ist die Anmeldung aktiv. Wir speichern nur deine E-Mail-Adresse und Kalendernummer, um dich über Gewinne zu informieren. Abmelden kannst du dich jederzeit über den Link in jeder E-Mail.</p>
+{{end}}
