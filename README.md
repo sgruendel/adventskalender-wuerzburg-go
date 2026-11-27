@@ -51,13 +51,18 @@ With `compose.yaml` these come from `.env` (see `.env.example`).
 
 ## Deployment (home server behind a FRITZ!Box)
 
-1. **FRITZ!Box:** under *Internet → Freigaben → Portfreigaben*, add a
-   sharing for the server with ports **80** and **443** (TCP; optionally
-   UDP 443 for HTTP/3), enabled for IPv4 *and* IPv6. The box then shows the
-   server's own MyFRITZ! address, `<device>.<id>.myfritz.net`. Use that
-   rather than the box's own name: it also carries the server's IPv6
-   address. The box's own HTTPS remote access must not use port 443.
-2. **Server:** clone the repository, then
+1. **Server IPv6:** the server needs a public IPv6 address. With a static
+   address in `/etc/network/interfaces`, add `autoconf 1` and `accept_ra 1`
+   to its `inet6` block.
+2. **FRITZ!Box:** under *Internet → Freigaben → Portfreigaben*, add two
+   **MyFRITZ!-Freigaben** (not plain *Portfreigaben*, which create no host
+   name) for the server: HTTP-Server on port **80** and HTTPS-Server on
+   **443**, for IPv4 and IPv6. The sharing then shows the server's own
+   MyFRITZ! address, `<device>.<id>.myfritz.net`, which resolves to the
+   public IPv4 and the server's IPv6 address. Check it with
+   `dig +short AAAA <device>.<id>.myfritz.net @ns3.myfritz.net`.
+   The box's own HTTPS remote access must not use port 443.
+3. **Server:** clone the repository to `~/Projects/github/adventskalender-wuerzburg-go`, then
    ```sh
    cp .env.example .env && chmod 600 .env   # fill it in
    docker compose up -d --build
@@ -65,15 +70,18 @@ With `compose.yaml` these come from `.env` (see `.env.example`).
    ```
    The app is not published on any port: it trusts the `X-Forwarded-For`
    header, so it must only be reachable through Caddy.
-3. **Cron** (`crontab -e` on the server, times in its local time zone):
+4. **Cron** (`crontab -e` on the server, times in its local time zone):
    ```
-   0 7-21 * 12 * cd $HOME/adventskalender-wuerzburg-go && docker compose exec -T app /app check >> check.log 2>&1 || echo "Adventskalender check failed, see check.log"
+   0 7-21 * 12 * cd $HOME/Projects/github/adventskalender-wuerzburg-go && docker compose exec -T app /app check >> check.log 2>&1 || echo "Adventskalender check failed, see check.log"
    ```
    A failed run prints a line, which cron mails to you.
-4. **Try it:** register your own address and confirm it.
+5. **Try it:** register your own address and confirm it.
 
 Update: `git pull && docker compose up -d --build`.
 Backup: `docker compose exec -T db pg_dump -U adventskalender adventskalender > backup.sql`.
+Database access: the database listens on `127.0.0.1:5433` on the server only;
+connect through an SSH tunnel (user and database `adventskalender`, password
+`POSTGRES_PASSWORD` from `.env`).
 
 ## Development
 
