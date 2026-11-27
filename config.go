@@ -2,7 +2,9 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"log"
+	"net/mail"
 	"os"
 	"strings"
 )
@@ -69,6 +71,9 @@ func (cfg config) newMailer() (Mailer, error) {
 	case cfg.smtpHost != "" || cfg.brevoAPIKey != "":
 		if cfg.mailFromEmail == "" {
 			return nil, errors.New("MAIL_FROM_EMAIL is not set")
+		}
+		if _, err := mail.ParseAddress(cfg.mailFromEmail); err != nil {
+			return nil, fmt.Errorf("sender address %q (MAIL_FROM_EMAIL or SMTP_USERNAME) is not a full email address", cfg.mailFromEmail)
 		}
 		if cfg.smtpHost != "" {
 			return newSMTPMailer(cfg.smtpHost, cfg.smtpPort, cfg.smtpUsername, cfg.smtpPassword, cfg.mailFromEmail, cfg.mailFromName), nil
