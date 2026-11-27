@@ -1,12 +1,10 @@
-{{define "title"}}{{.Title}}{{end}}
-
-{{define "content"}}
+{{define "title"}}{{.Title}}{{end}} {{define "content"}}
 <h1>{{.Title}}</h1>
-{{range .Paragraphs}}<p>{{.}}</p>
-{{end}}
-{{if .Action -}}
+{{range .Paragraphs}}
+<p>{{.}}</p>
+{{end}} {{if .Action -}}
 <form method="post" action="{{.Action}}">
-  <input type="hidden" name="token" value="{{.Token}}">
+  <input type="hidden" name="token" value="{{.Token}}" />
   <button type="submit">{{.Button}}</button>
 </form>
 {{- end}}
